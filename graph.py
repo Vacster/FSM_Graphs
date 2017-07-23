@@ -18,7 +18,7 @@ RADIUS = 50
 
 screen = pygame.display.set_mode(SCREEN_SIZE)
 
-pygame.display.set_caption("Graphs v0.3")
+pygame.display.set_caption("Graphs v0.4")
 
 clock = pygame.time.Clock()
 done = False
@@ -67,7 +67,7 @@ class Circle:
     def select(self):
         self.color = RED
     def deselect(self):
-        self.color = BLUE
+        self.color = GREEN if self.final else BLUE
     def is_clicked(self, pos):
         return math.sqrt(math.pow(pos[0] - self.pos[0], 2) +
                             math.pow(pos[1] - self.pos[1], 2)) < RADIUS
@@ -158,11 +158,14 @@ while not done:
                 input_text = input_text[:-1]
             elif event.unicode == "\r":
                 if selected != None:
-                    fsm = Fysom(initial=selected.text,
-                    events=get_events())
-                    for c in input_text:
-                        fsm.trigger(c)
-                        print(fsm.current)
+                    try:
+                        fsm = Fysom(initial=selected.text,
+                        events=get_events())
+                        for c in input_text:
+                            fsm.trigger(c)
+                        print("Last State:", fsm.current, is_final(fsm.current))
+                    except:
+                        print "Something went wrong when evaluating"
             else:
                 input_text+=event.unicode
 
