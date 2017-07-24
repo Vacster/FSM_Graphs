@@ -14,7 +14,7 @@ BLUE =  (  0,   0, 255)
 GREEN = (  0, 120,   0)
 RED =   (255,   0,   0)
 GREY =  (175, 175, 175)
-SCREEN_SIZE = [1000, 1000]
+SCREEN_SIZE = [1200, 1200]
 RADIUS = 50
 
 screen = pygame.display.set_mode(SCREEN_SIZE)
@@ -31,9 +31,11 @@ last_clicks = []
 circles = []
 lines = []
 
-def line_exists(circle_a, circle_b):
+def line_exists(circle_a, circle_b, value):
     for line in lines:
-        if line.circle_a == circle_a and line.circle_b == circle_b:
+        if line.circle_a == circle_a \
+        and line.circle_b == circle_b \
+        and line.text != value:
             return True
     return False
 
@@ -108,10 +110,10 @@ while not done:
                 elif last_clicks[1]:
                     for index, circle in enumerate(list(circles)):
                         if circle.is_clicked(pos):
+                            text = '%s' % input_text[:5]
                             if selected != None \
                             and len(input_text) > 0 \
-                            and not line_exists(selected, circles[index]):
-                                text = '%s' % input_text[:5]
+                            and not line_exists(selected, circles[index], text):
                                 lines.append(
                                     Line(
                                     selected, circles[index],
@@ -155,16 +157,26 @@ while not done:
                 input_text = input_text[:-1]
             elif event.unicode == "\r":
                 if "save" in input_text:
-                    f = open(input_text[5:], "w")
-                    pickle.dump(circles, f)
-                    pickle.dump(lines, f)
-                    f.close()
+                    try:
+                        f = open(input_text[5:], "w")
+                        pickle.dump(circles, f)
+                        pickle.dump(lines, f)
+                        f.close()
+                    except:
+                        print "Error saving file."
                     input_text = ""
                 elif "load" in input_text:
-                    f = open(input_text[5:], "r")
-                    circles = pickle.load(f)
-                    lines = pickle.load(f)
-                    f.close()
+                    try:
+                        f = open(input_text[5:], "r")
+                        circles = pickle.load(f)
+                        lines = pickle.load(f)
+                        f.close()
+                        for circle in circles:
+                            if circle.color == RED:
+                                selected = circle
+                                break
+                    except:
+                        print "Error loading file."
                     input_text = ""
                 elif selected != None:
                     try:
@@ -174,7 +186,7 @@ while not done:
                             fsm.trigger(c)
                         print("Last State:", fsm.current, is_final(fsm.current))
                     except:
-                        print "Something went wrong when evaluating"
+                        print "Something went wrong when evaluating."
             else:
                 input_text+=event.unicode
 
