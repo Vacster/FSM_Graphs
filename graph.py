@@ -39,6 +39,12 @@ def line_exists(circle_a, circle_b, value):
             return True
     return False
 
+def circle_exists(text):
+    for circle in circles:
+        if circle.text == text:
+            return True
+    return False
+
 def erase_line(circle):
     num = []
     for line in lines:
@@ -50,13 +56,19 @@ def erase_line(circle):
 def get_events():
     events = []
     for line in lines:
-        events.append([line.text, line.circle_a.text, line.circle_b.text])
+        events.append([line.text, line.circle_a, line.circle_b])
     return events
 
 def is_final(state):
     for circle in circles:
         if circle.text == state:
             return circle.final
+
+def find_circle(name):
+    for circle in circles:
+        if circle.text == name:
+            return circle
+    return None
 
 class Circle:
     def __init__(self, pos, text):
@@ -116,7 +128,7 @@ while not done:
                             and not line_exists(selected, circles[index], text):
                                 lines.append(
                                     Line(
-                                    selected, circles[index],
+                                    selected.text, circles[index].text,
                                     text))
                                 input_text = ""
                             elif selected == None:
@@ -127,10 +139,11 @@ while not done:
                 #Left_click creates circle
                 elif last_clicks[0] and len(input_text) > 0:
                     text = '%s' % input_text[:5]
-                    circles.append(
-                        Circle(pos,
-                        text))
-                    input_text = ""
+                    if not circle_exists(text):
+                        circles.append(
+                            Circle(pos,
+                            text))
+                        input_text = ""
             drag = False
             last_clicks = [0,0,0]
 
@@ -194,19 +207,21 @@ while not done:
     for line in lines:
         #TODO: Rendering the same font multiple times is wasteful
         rendered_font = font.render(line.text, 1, BLACK)
-        if line.circle_a != line.circle_b:
-            pygame.draw.line(screen, GREY, line.circle_a.pos,
-                line.circle_b.pos, 10)
-            x = (line.circle_a.pos[0]/4) + (3 * line.circle_b.pos[0] / 4)
-            y = (line.circle_a.pos[1]/4) + (3 * line.circle_b.pos[1] / 4)
+        circle_a = find_circle(line.circle_a)
+        circle_b = find_circle(line.circle_b)
+        if circle_a != circle_b:
+            pygame.draw.line(screen, GREY, circle_a.pos,
+                circle_b.pos, 10)
+            x = (circle_a.pos[0]/4) + (3 * circle_b.pos[0] / 4)
+            y = (circle_a.pos[1]/4) + (3 * circle_b.pos[1] / 4)
             screen.blit(rendered_font, (x, y))
         else:
             pygame.draw.ellipse(screen, GREY,
-                [line.circle_a.pos[0] - RADIUS,
-                line.circle_a.pos[1] - (RADIUS * 2),
+                [circle_a.pos[0] - RADIUS,
+                circle_a.pos[1] - (RADIUS * 2),
                 RADIUS * 2, RADIUS * 2], 10)
-            x = line.circle_a.pos[0] - (rendered_font.get_width()/2)
-            y = line.circle_a.pos[1] - (RADIUS * 2) - rendered_font.get_height()
+            x = circle_a.pos[0] - (rendered_font.get_width()/2)
+            y = circle_a.pos[1] - (RADIUS * 2) - rendered_font.get_height()
             screen.blit(rendered_font, (x, y))
 
     for circle in circles:
