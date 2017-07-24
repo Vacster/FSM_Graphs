@@ -1,4 +1,5 @@
 from fysom import Fysom
+import pickle
 import pygame
 import math
 
@@ -56,10 +57,9 @@ def is_final(state):
             return circle.final
 
 class Circle:
-    def __init__(self, pos, font, text):
+    def __init__(self, pos, text):
         self.pos = pos
         self.color = BLUE
-        self.label = font
         self.text = text
         self.final = False
     def update_pos(self, pos):
@@ -80,10 +80,9 @@ class Circle:
             self.final = True
 
 class Line:
-    def __init__(self, circle_a, circle_b, font, text):
+    def __init__(self, circle_a, circle_b, text):
         self.circle_a = circle_a
         self.circle_b = circle_b
-        self.label = font
         self.text = text
 
 #Main Loop
@@ -116,7 +115,6 @@ while not done:
                                 lines.append(
                                     Line(
                                     selected, circles[index],
-                                    font.render(text, 1, BLACK),
                                     text))
                                 input_text = ""
                             elif selected == None:
@@ -129,7 +127,6 @@ while not done:
                     text = '%s' % input_text[:5]
                     circles.append(
                         Circle(pos,
-                        font.render(text , 1, WHITE),
                         text))
                     input_text = ""
             drag = False
@@ -157,7 +154,19 @@ while not done:
             if event.unicode == "\b":
                 input_text = input_text[:-1]
             elif event.unicode == "\r":
-                if selected != None:
+                if "save" in input_text:
+                    f = open(input_text[5:], "w")
+                    pickle.dump(circles, f)
+                    pickle.dump(lines, f)
+                    f.close()
+                    input_text = ""
+                elif "load" in input_text:
+                    f = open(input_text[5:], "r")
+                    circles = pickle.load(f)
+                    lines = pickle.load(f)
+                    f.close()
+                    input_text = ""
+                elif selected != None:
                     try:
                         fsm = Fysom(initial=selected.text,
                         events=get_events())
@@ -171,25 +180,28 @@ while not done:
 
     #Drawing
     for line in lines:
+        #TODO: Rendering the same font multiple times is wasteful
+        rendered_font = font.render(line.text, 1, BLACK)
         if line.circle_a != line.circle_b:
             pygame.draw.line(screen, GREY, line.circle_a.pos,
                 line.circle_b.pos, 10)
             x = (line.circle_a.pos[0]/4) + (3 * line.circle_b.pos[0] / 4)
             y = (line.circle_a.pos[1]/4) + (3 * line.circle_b.pos[1] / 4)
-            screen.blit(line.label, (x, y))
+            screen.blit(rendered_font, (x, y))
         else:
             pygame.draw.ellipse(screen, GREY,
                 [line.circle_a.pos[0] - RADIUS,
                 line.circle_a.pos[1] - (RADIUS * 2),
                 RADIUS * 2, RADIUS * 2], 10)
-            x = line.circle_a.pos[0] - (line.label.get_width()/2)
-            y = line.circle_a.pos[1] - (RADIUS * 2) - line.label.get_height()
-            screen.blit(line.label, (x, y))
+            x = line.circle_a.pos[0] - (rendered_font.get_width()/2)
+            y = line.circle_a.pos[1] - (RADIUS * 2) - rendered_font.get_height()
+            screen.blit(rendered_font, (x, y))
 
     for circle in circles:
         pygame.draw.circle(screen, circle.color, circle.pos, RADIUS)
-        screen.blit(circle.label, (circle.pos[0] - circle.label.get_width()/2,
-                    circle.pos[1] - circle.label.get_height()/2))
+        rendered_font = font.render(circle.text, 1, WHITE)
+        screen.blit(rendered_font, (circle.pos[0] - rendered_font.get_width()/2,
+                    circle.pos[1] - rendered_font.get_height()/2))
 
     label = font.render(input_text, 1, BLACK)
     screen.blit(label,
