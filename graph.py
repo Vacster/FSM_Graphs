@@ -14,12 +14,12 @@ BLUE =  (  0,   0, 255)
 GREEN = (  0, 120,   0)
 RED =   (255,   0,   0)
 GREY =  (175, 175, 175)
-SCREEN_SIZE = [1200, 1200]
+SCREEN_SIZE = [1600, 1200]
 RADIUS = 50
 
 screen = pygame.display.set_mode(SCREEN_SIZE)
 
-pygame.display.set_caption("Graphs v0.4")
+pygame.display.set_caption("Graphs v0.5")
 
 clock = pygame.time.Clock()
 done = False
@@ -48,7 +48,7 @@ def circle_exists(text):
 def erase_line(circle):
     num = []
     for line in lines:
-        if line.circle_a == circle or line.circle_b == circle:
+        if line.circle_a == circle.text or line.circle_b == circle.text:
             num.append(line)
     for x in num:
         lines.remove(x)
@@ -190,6 +190,34 @@ while not done:
                                 break
                     except:
                         print "Error loading file."
+                    input_text = ""
+                elif "edit" in input_text and selected != None:
+                    splitted = input_text.split(" ")
+                    if len(splitted) == 2:
+                        for line in lines:
+                            if line.circle_a == selected.text:
+                                line.circle_a = splitted[1]
+                            if line.circle_b == selected.text:
+                                line.circle_b = splitted[1]
+                        selected.text = splitted[1]
+                        input_text = ""
+                    else:
+                        #Trash, Node, Line, New
+                        for line in lines:
+                            if line.text == splitted[2] \
+                            and line.circle_a == selected.text \
+                            and line.circle_b == splitted[1]:
+                                line.text = splitted[3]
+                                input_text = ""
+                elif "delete" in input_text and selected != None:
+                    splitted = input_text.split(" ")
+                    remove = None
+                    for line in lines:
+                        if line.text == splitted[2] \
+                        and line.circle_a == selected.text \
+                        and line.circle_b == splitted[1]:
+                            remove = line
+                    lines.remove(remove)
                     input_text = ""
                 elif selected != None:
                     try:
