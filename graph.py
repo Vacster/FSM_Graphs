@@ -31,6 +31,11 @@ last_clicks = []
 circles = []
 lines = []
 
+def lose_selection(sel):
+    if sel != None:
+        sel.deselect()
+        sel = None
+
 def line_exists(circle_a, circle_b, value):
     for line in lines:
         if line.circle_a == circle_a \
@@ -76,12 +81,16 @@ class Circle:
         self.color = BLUE
         self.text = text
         self.final = False
+
     def update_pos(self, pos):
         self.pos = pos
+
     def select(self):
         self.color = RED
+
     def deselect(self):
         self.color = GREEN if self.final else BLUE
+
     def is_clicked(self, pos):
         return math.sqrt(math.pow(pos[0] - self.pos[0], 2) +
                             math.pow(pos[1] - self.pos[1], 2)) < RADIUS
@@ -92,12 +101,37 @@ class Circle:
         else:
             self.color = GREEN
             self.final = True
+    def draw(self):
+        pygame.draw.circle(screen, circle.color, circle.pos, RADIUS)
+        rendered_font = font.render(circle.text, 1, WHITE)
+        screen.blit(rendered_font, (circle.pos[0] - rendered_font.get_width()/2,
+                    circle.pos[1] - rendered_font.get_height()/2))
 
 class Line:
     def __init__(self, circle_a, circle_b, text):
         self.circle_a = circle_a
         self.circle_b = circle_b
         self.text = text
+
+    def draw(self):
+        #TODO: Rendering the same font multiple times is slow
+        rendered_font = font.render(line.text, 1, BLACK)
+        circle_a = find_circle(line.circle_a)
+        circle_b = find_circle(line.circle_b)
+        if circle_a != circle_b:
+            pygame.draw.line(screen, GREY, circle_a.pos,
+                circle_b.pos, 10)
+            x = (circle_a.pos[0]/4) + (3 * circle_b.pos[0] / 4)
+            y = (circle_a.pos[1]/4) + (3 * circle_b.pos[1] / 4)
+            screen.blit(rendered_font, (x, y))
+        else:
+            pygame.draw.ellipse(screen, GREY,
+                [circle_a.pos[0] - RADIUS,
+                circle_a.pos[1] - (RADIUS * 2),
+                RADIUS * 2, RADIUS * 2], 10)
+            x = circle_a.pos[0] - (rendered_font.get_width()/2)
+            y = circle_a.pos[1] - (RADIUS * 2) - rendered_font.get_height()
+            screen.blit(rendered_font, (x, y))
 
 #Main Loop
 while not done:
@@ -118,6 +152,7 @@ while not done:
                         if circle.is_clicked(pos):
                             erase_line(circle)
                             circles.remove(circle)
+                        lose_selection(selected)
                 #Middle_click adds transition
                 elif last_clicks[1]:
                     for index, circle in enumerate(list(circles)):
@@ -133,9 +168,7 @@ while not done:
                                 input_text = ""
                             elif selected == None:
                                 circle.toggle_final()
-                    if selected != None:
-                        selected.deselect()
-                        selected = None
+                    lose_selection(selected)
                 #Left_click creates circle
                 elif last_clicks[0] and len(input_text) > 0:
                     text = '%s' % input_text[:5]
@@ -176,7 +209,7 @@ while not done:
                         pickle.dump(lines, f)
                         f.close()
                     except:
-                        print "Error saving file."
+                        print("Error saving file.")
                     input_text = ""
                 elif "load" in input_text:
                     try:
@@ -189,7 +222,7 @@ while not done:
                                 selected = circle
                                 break
                     except:
-                        print "Error loading file."
+                        print("Error loading file.")
                     input_text = ""
                 elif "edit" in input_text and selected != None:
                     splitted = input_text.split(" ")
@@ -226,41 +259,22 @@ while not done:
                         for c in input_text:
                             fsm.trigger(c)
                         print("Last State:", fsm.current, is_final(fsm.current))
-                    except:
-                        print "Something went wrong when evaluating."
+                    except Exception as e:
+                        print("Something went wrong when evaluating.", e)
             else:
                 input_text+=event.unicode
 
     #Drawing
     for line in lines:
-        #TODO: Rendering the same font multiple times is wasteful
-        rendered_font = font.render(line.text, 1, BLACK)
-        circle_a = find_circle(line.circle_a)
-        circle_b = find_circle(line.circle_b)
-        if circle_a != circle_b:
-            pygame.draw.line(screen, GREY, circle_a.pos,
-                circle_b.pos, 10)
-            x = (circle_a.pos[0]/4) + (3 * circle_b.pos[0] / 4)
-            y = (circle_a.pos[1]/4) + (3 * circle_b.pos[1] / 4)
-            screen.blit(rendered_font, (x, y))
-        else:
-            pygame.draw.ellipse(screen, GREY,
-                [circle_a.pos[0] - RADIUS,
-                circle_a.pos[1] - (RADIUS * 2),
-                RADIUS * 2, RADIUS * 2], 10)
-            x = circle_a.pos[0] - (rendered_font.get_width()/2)
-            y = circle_a.pos[1] - (RADIUS * 2) - rendered_font.get_height()
-            screen.blit(rendered_font, (x, y))
+        line.draw()
 
     for circle in circles:
-        pygame.draw.circle(screen, circle.color, circle.pos, RADIUS)
-        rendered_font = font.render(circle.text, 1, WHITE)
-        screen.blit(rendered_font, (circle.pos[0] - rendered_font.get_width()/2,
-                    circle.pos[1] - rendered_font.get_height()/2))
+        circle.draw()
 
     label = font.render(input_text, 1, BLACK)
     screen.blit(label,
-        (SCREEN_SIZE[0]-label.get_width(), SCREEN_SIZE[1]-label.get_height()))
+        (SCREEN_SIZE[0] - label.get_width(),
+        SCREEN_SIZE[1] - label.get_height()))
 
     pygame.display.flip()
 
