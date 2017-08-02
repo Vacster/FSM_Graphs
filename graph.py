@@ -1,7 +1,7 @@
 import automaton
 import pickle, pygame, math, pygbutton
 
-class ErrorMessage:
+class Message:
     def __init__(self):
         self.font = pygame.font.SysFont("monospace", 60)
         self.label = None
@@ -34,20 +34,24 @@ class Circle:
         self.color = RED
 
     def deselect(self):
-        self.color = GREEN if self.final else BLUE
+        self.color = BLUE
 
     def is_clicked(self, pos):
         return math.sqrt(math.pow(pos[0] - self.pos[0], 2) +
                             math.pow(pos[1] - self.pos[1], 2)) < RADIUS
+
     def toggle_final(self):
         if self.final:
-            self.color = BLUE
             self.final = False
         else:
-            self.color = GREEN
             self.final = True
+
     def draw(self):
         pygame.draw.circle(screen, circle.color, circle.pos, RADIUS)
+        if self.final:
+            pygame.draw.circle(screen, circle.color,
+                circle.pos, FINAL_RADIUS, 10)
+
         rendered_font = font.render(circle.text, 1, WHITE)
         screen.blit(rendered_font, (circle.pos[0] - rendered_font.get_width()/2,
                     circle.pos[1] - rendered_font.get_height()/2))
@@ -56,28 +60,31 @@ class Line:
     def __init__(self, circle_a, circle_b, text):
         self.circle_a = circle_a
         self.circle_b = circle_b
+        self.circle_a_ref = find_circle(circle_a)
+        self.circle_b_ref = find_circle(circle_b)
         self.text = text
 
     def draw(self):
         #TODO: Rendering the same font multiple times is slow
         rendered_font = font.render(line.text, 1, BLACK)
-        circle_a = find_circle(line.circle_a)
-        circle_b = find_circle(line.circle_b)
-        if circle_a != circle_b:
-            pygame.draw.line(screen, LIGHT_GREY, circle_a.pos,
-                circle_b.pos, 10)
-            x = (circle_a.pos[0]/4) + (3 * circle_b.pos[0] / 4)
-            y = (circle_a.pos[1]/4) + (3 * circle_b.pos[1] / 4)
-            screen.blit(rendered_font, (x, y))
-        else:
-            pygame.draw.ellipse(screen, LIGHT_GREY,
-                [circle_a.pos[0] - RADIUS,
-                circle_a.pos[1] - (RADIUS * 2),
-                RADIUS * 2, RADIUS * 2], 10)
-            x = circle_a.pos[0] - (rendered_font.get_width()/2)
-            y = circle_a.pos[1] - (RADIUS * 2) - rendered_font.get_height()
-            screen.blit(rendered_font, (x, y))
-
+        try:
+            if self.circle_a_ref != self.circle_b_ref:
+                pygame.draw.line(screen, LIGHT_GREY, self.circle_a_ref.pos,
+                    self.circle_b_ref.pos, 10)
+                x = (self.circle_a_ref.pos[0] + 3 * self.circle_b_ref.pos[0]) /4
+                y = (self.circle_a_ref.pos[1] + 3 * self.circle_b_ref.pos[1]) /4
+                screen.blit(rendered_font, (x, y))
+            else:
+                pygame.draw.ellipse(screen, LIGHT_GREY,
+                    [self.circle_a_ref.pos[0] - RADIUS,
+                    self.circle_a_ref.pos[1] - (RADIUS * 2),
+                    RADIUS * 2, RADIUS * 2], 10)
+                x = self.circle_a_ref.pos[0] - (rendered_font.get_width()/2)
+                y = self.circle_a_ref.pos[1] - (RADIUS * 2) - 30
+                screen.blit(rendered_font, (x, y))
+        except:
+            self.circle_a_ref = find_circle(self.circle_a)
+            self.circle_b_ref = find_circle(self.circle_b)
 #Init game
 pygame.init()
 font = pygame.font.SysFont("monospace", 30)
@@ -92,13 +99,14 @@ GREY =  (130, 130, 130)
 LIGHT_GREY = (190, 190, 190)
 SCREEN_SIZE = [1600, 1200]
 RADIUS = 50
+FINAL_RADIUS = 75
 
+graph_state = "DFA"
+message = Message()
+clock = pygame.time.Clock()
+pygame.display.set_caption("Graphs v0.5")
 screen = pygame.display.set_mode(SCREEN_SIZE)
 change_button = pygbutton.PygButton((50, 50, 100, 50), 'Change')
-pygame.display.set_caption("Graphs v0.5")
-clock = pygame.time.Clock()
-graph_state = "DFA"
-message = ErrorMessage()
 
 done = False
 drag = False
@@ -176,7 +184,9 @@ def get_events():
             tmp = dict()
             tmp_2 = dict()
             for line in circle.lines:
-                tmp.setdefault(line.text,[]).append(line.circle_b)
+                for x in line.text.split("|"):
+                    print(x)
+                    tmp.setdefault(x,[]).append(line.circle_b)
             for key, val in tmp.items():
                 tmp_2[key] = set(val)
             if tmp_2:
