@@ -1,5 +1,4 @@
-import automaton
-import pickle, pygame, math, pygbutton
+import automaton, pickle, pygame, math, pygbutton
 
 class Message:
     def __init__(self):
@@ -30,12 +29,6 @@ class Circle:
     def update_pos(self, pos):
         self.pos = pos
 
-    def select(self):
-        self.color = RED
-
-    def deselect(self):
-        self.color = BLUE
-
     def is_clicked(self, pos):
         return math.sqrt(math.pow(pos[0] - self.pos[0], 2) +
                             math.pow(pos[1] - self.pos[1], 2)) < RADIUS
@@ -47,9 +40,11 @@ class Circle:
             self.final = True
 
     def draw(self):
-        pygame.draw.circle(screen, circle.color, circle.pos, RADIUS)
+        color = circle.color if selected != self else RED
+        pygame.draw.circle(screen, color,
+        circle.pos, RADIUS)
         if self.final:
-            pygame.draw.circle(screen, circle.color,
+            pygame.draw.circle(screen, color,
                 circle.pos, FINAL_RADIUS, 10)
 
         rendered_font = font.render(circle.text, 1, WHITE)
@@ -64,27 +59,91 @@ class Line:
         self.circle_b_ref = find_circle(circle_b)
         self.text = text
 
+    def get_circle_refs(self):
+        self.circle_a_ref = find_circle(self.circle_a)
+        self.circle_b_ref = find_circle(self.circle_b)
+
     def draw(self):
         #TODO: Rendering the same font multiple times is slow
         rendered_font = font.render(line.text, 1, BLACK)
+        color = RED if selected == self else LIGHT_GREY
         try:
             if self.circle_a_ref != self.circle_b_ref:
-                pygame.draw.line(screen, LIGHT_GREY, self.circle_a_ref.pos,
-                    self.circle_b_ref.pos, 10)
-                x = (self.circle_a_ref.pos[0] + 3 * self.circle_b_ref.pos[0]) /4
-                y = (self.circle_a_ref.pos[1] + 3 * self.circle_b_ref.pos[1]) /4
-                screen.blit(rendered_font, (x, y))
+                start = self.circle_a_ref.pos
+                end = self.circle_b_ref.pos
+                pygame.draw.line(screen,
+                    color , start, end, 10)
+
+                x = end[0] - start[0]
+                y = end[1] - start[1]
+                ratio = (100 if self.circle_b_ref.final else 75) / math.sqrt(x * x + y * y)
+                end = (end[0] - x * ratio, end[1] - y * ratio)
+
+                rotation = math.atan2(start[1]-end[1],
+                    end[0]-start[0]) + (math.pi / 2)
+                arrow_size = 25
+                radians_dif = 2 * math.pi / 3
+
+                pygame.draw.polygon(screen, color,
+                ((end[0] + arrow_size * math.sin(rotation),
+                end[1] + arrow_size * math.cos(rotation)),
+                (end[0] + arrow_size * math.sin(rotation - radians_dif),
+                end[1] + arrow_size * math.cos(rotation - radians_dif)),
+                (end[0] + arrow_size * math.sin(rotation + radians_dif),
+                end[1] + arrow_size * math.cos(rotation + radians_dif))))
+                screen.blit(rendered_font, (end[0] - arrow_size * math.sin(rotation),
+                end[1] - arrow_size * math.cos(rotation)))
             else:
-                pygame.draw.ellipse(screen, LIGHT_GREY,
-                    [self.circle_a_ref.pos[0] - RADIUS,
-                    self.circle_a_ref.pos[1] - (RADIUS * 2),
-                    RADIUS * 2, RADIUS * 2], 10)
+                pygame.draw.circle(screen, color,
+                    (self.circle_a_ref.pos[0],
+                    self.circle_a_ref.pos[1] - RADIUS),
+                    RADIUS, 10)
                 x = self.circle_a_ref.pos[0] - (rendered_font.get_width()/2)
                 y = self.circle_a_ref.pos[1] - (RADIUS * 2) - 30
                 screen.blit(rendered_font, (x, y))
         except:
-            self.circle_a_ref = find_circle(self.circle_a)
-            self.circle_b_ref = find_circle(self.circle_b)
+            self.get_circle_refs()
+
+    def is_clicked(self, pos):
+        try:
+            circle_a = self.circle_a_ref.pos
+            circle_b = self.circle_b_ref.pos
+
+            if circle_a != circle_b:
+                vec_line = (circle_b[0] - circle_a[0],
+                            circle_b[1] - circle_a[1])
+                vec_point = (pos[0] - circle_a[0],
+                            pos[1] - circle_a[1])
+                vec_extra = (pos[0] - circle_b[0],
+                            pos[1] - circle_b[1])
+
+                square_len = vec_point[0] * vec_line[0] \
+                            + vec_line[1] * vec_line[1]
+                dot_prod = vec_point[0] * vec_line[0] \
+                            + vec_point[1] * vec_line[1]
+                cross_prod = vec_point[1] * vec_line[0] \
+                            - vec_point[0] * vec_line[1]
+
+                distance_end_1 = math.sqrt(vec_point[0] ** 2
+                                + vec_point[1] ** 2)
+                distance_end_2 = math.sqrt(vec_extra[0] ** 2
+                                + vec_extra[1] ** 2)
+
+                if dot_prod < 0:
+                    return distance_end_1 <= CLICK_RANGE
+                if dot_prod > square_len:
+                    return distance_end_2 <= CLICK_RANGE
+
+                distance = math.fabs(cross_prod) / math.sqrt(square_len)
+                return distance <= CLICK_RANGE
+            else:
+                return math.sqrt(((pos[0] - circle_a[0]) ** 2) + \
+                ((pos[1] - (circle_a[1] - RADIUS)) ** 2)) < RADIUS
+        except Exception as e:
+            self.get_circle_refs()
+            print(e)
+            #return self.is_clicked(pos)
+
 #Init game
 pygame.init()
 font = pygame.font.SysFont("monospace", 30)
@@ -100,6 +159,7 @@ LIGHT_GREY = (190, 190, 190)
 SCREEN_SIZE = [1600, 1200]
 RADIUS = 50
 FINAL_RADIUS = 75
+CLICK_RANGE = 25
 
 graph_state = "DFA"
 message = Message()
@@ -115,10 +175,9 @@ input_text = ""
 last_clicks = []
 circles = []
 
-def lose_selection(sel):
-    if sel != None:
-        sel.deselect()
-        sel = None
+def lose_selection():
+    global selected
+    selected = None
 
 def line_exists(circle_a, circle_b, value):
     for circle in circles:
@@ -140,7 +199,7 @@ def circle_exists(text):
             return True
     return False
 
-def erase_line(circle):
+def erase_circle(circle):
     tmp = []
     for circlex in circles:
         for line in circlex.lines:
@@ -153,20 +212,14 @@ def erase_line(circle):
             except:
                 continue
 
-def get_states():
-    states = []
-    for circle in circles:
-        states.append(circle.text)
-    return set(states)
-
-def is_final(state):
-    for circle in circles:
-        if circle.text == state:
-            return circle.final
-
 def get_finals():
     finals = []
     for circle in circles:
+        for line in circle.lines:
+            for transition in line.text.split("|"):
+                if transition == '*':
+                    if find_circle(line.circle_b).final:
+                        finals.append(circle.text)
         if circle.final:
             finals.append(circle.text)
     return finals
@@ -177,7 +230,8 @@ def get_events():
         if graph_state == "DFA":
             tmp = dict()
             for line in circle.lines:
-                tmp[line.text] = line.circle_b
+                for x in line.text.split("|"):
+                    tmp[x] = line.circle_b
             if tmp:
                 tmp_dict[circle.text] = tmp
         elif graph_state == "NFA":
@@ -185,13 +239,25 @@ def get_events():
             tmp_2 = dict()
             for line in circle.lines:
                 for x in line.text.split("|"):
-                    print(x)
-                    tmp.setdefault(x,[]).append(line.circle_b)
+                    if x == '*':
+                        for y, eps_circle in get_epsilon(find_circle(line.circle_b)):
+                            tmp.setdefault(y,[]).append(eps_circle)
+                    else:
+                        tmp.setdefault(x,[]).append(line.circle_b)
             for key, val in tmp.items():
                 tmp_2[key] = set(val)
             if tmp_2:
                 tmp_dict[circle.text] = tmp_2
     return tmp_dict
+
+def get_epsilon(circle):
+    for line in circle.lines:
+        for x in line.text.split("|"):
+            if x == '*':
+                for y, z in get_epsilon(find_circle(line.circle_b)):
+                    yield y, z
+            else:
+                yield x, line.circle_b
 
 def find_circle(name):
     for circle in circles:
@@ -214,8 +280,7 @@ def get_circle_name(name):
 #Main Loop
 while not done:
     screen.fill(GREY)
-    clock.tick(6000) #Wut
-    pygame.time.wait(0)
+    clock.tick(30) #Wut
 
     for event in pygame.event.get():
         done = event.type == pygame.QUIT
@@ -231,10 +296,13 @@ while not done:
                     M = automaton.convertNFAtoDFA(N)
                     circles = []
                     index = 1
+                    """ Arranges nodes in a circle """
                     for node, data in M.delta.items():
                         circle = Circle(
-                            (int((math.cos((index * (2*math.pi))/len(M.delta)) * 500) + (SCREEN_SIZE[0]/2)),
-                            int((math.sin((index * (2*math.pi))/len(M.delta)) * 500) + (SCREEN_SIZE[1]/2))),
+                            (int((math.cos((index * (2*math.pi))/len(M.delta))
+                            * 500) + (SCREEN_SIZE[0]/2)),
+                            int((math.sin((index * (2*math.pi))/len(M.delta))
+                            * 500) + (SCREEN_SIZE[1]/2))),
                             get_circle_name(node)
                         )
                         for val, circle_b in data.items():
@@ -255,7 +323,6 @@ while not done:
                                 break
                         if initialState == circle.text:
                             selected = circle
-                            selected.select()
                     graph_state = "DFA"
                 except AttributeError as e:
                     message.start("Starting node must be selected.")
@@ -268,10 +335,12 @@ while not done:
                         found = False
                         for circle in list(circles):
                             if circle.is_clicked(pos):
-                                erase_line(circle)
+                                erase_circle(circle)
                                 circles.remove(circle)
-                            lose_selection(selected)
-                            selected = None
+                            for line in list(circle.lines):
+                                if line.is_clicked(pos):
+                                    circle.lines.remove(line)
+                            lose_selection()
                     #Middle_click adds transition
                     elif last_clicks[1]:
                         for index, circle in enumerate(list(circles)):
@@ -287,33 +356,35 @@ while not done:
                                     input_text = ""
                                 elif selected == None:
                                     circle.toggle_final()
-                        lose_selection(selected)
-                        selected = None
+                        lose_selection()
                     #Left_click creates circle
-                    elif last_clicks[0] and len(input_text) > 0:
-                        text = '%s' % input_text[:5]
-                        if not circle_exists(text):
-                            circles.append(
-                                Circle(pos,
-                                text))
-                            input_text = ""
+                    elif last_clicks[0]:
+                        if len(input_text) > 0:
+                            text = '%s' % input_text[:5]
+                            if not circle_exists(text):
+                                circles.append(
+                                    Circle(pos,
+                                    text))
+                                input_text = ""
                 drag = False
                 last_clicks = [0,0,0]
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 last_clicks = clicks
-                for index, circle in enumerate(circles):
-                    #Selects circle
-                    if circle.is_clicked(pos):
-                        if last_clicks[0]:
-                            if selected != None:
-                                selected.deselect()
-                            selected = circles[index]
-                            selected.select()
+                if last_clicks[0]:
+                    for circle in circles:
+                        if circle.is_clicked(pos):
+                            selected = circle
                             drag = True
+                            break
+                        for line in circle.lines:
+                            if line.is_clicked(pos):
+                                selected = line
+                                drag = True
+                                break
 
             if event.type == pygame.MOUSEMOTION:
-                if drag:
+                if drag and isinstance(selected, Circle):
                     selected.update_pos(pos)
 
         #Write input_text
@@ -346,6 +417,23 @@ while not done:
                         message.start("Error loading file.")
                         print("Error loading file.", e)
                     input_text = ""
+                elif "edit" in input_text:
+                    try:
+                        new_text = selected.text = input_text[5:10]
+                        if isinstance(selected, Circle):
+                            for circle in circles:
+                                for line in lines:
+                                    if line.circle_b == selected.text:
+                                        line.circle_b = new_text
+                                        line.get_circle_refs()
+                                    if line.circle_a == selected.text:
+                                        line.circle_a = new_text
+                                        line.get_circle_refs()
+                        else:
+                            selected.text == new_text
+                        input_text = ""
+                    except Exception as e:
+                        print("Couldn't rename.", e)
                 elif selected != None:
                     try:
                         if graph_state == "DFA":
@@ -359,26 +447,25 @@ while not done:
             else:
                 input_text+=event.unicode
 
-    #Drawing
-    """Separating draws so the lines are below the circles"""
-    for circle in circles:
-        for line in circle.lines:
-            line.draw()
-    for circle in circles:
-        circle.draw()
+        #Drawing
+        """Separating draws so the lines are below the circles"""
+        for circle in circles:
+            for line in circle.lines:
+                line.draw()
+        for circle in circles:
+            circle.draw()
 
-    label = font.render(input_text, 1, BLACK)
-    screen.blit(label,
-        (SCREEN_SIZE[0] - label.get_width(),
-        SCREEN_SIZE[1] - label.get_height()))
+        label = font.render(input_text, 1, BLACK)
+        screen.blit(label,
+            (SCREEN_SIZE[0] - label.get_width(),
+            SCREEN_SIZE[1] - label.get_height()))
 
-    label = font.render(graph_state, 1, BLACK)
-    screen.blit(label,
-        (SCREEN_SIZE[0] - label.get_width(), 0))
+        label = font.render(graph_state, 1, BLACK)
+        screen.blit(label,
+            (SCREEN_SIZE[0] - label.get_width(), 0))
 
-    message.draw(screen, (SCREEN_SIZE[0] / 2, SCREEN_SIZE[1]))
-    change_button.draw(screen)
-
-    pygame.display.flip()
+        message.draw(screen, (SCREEN_SIZE[0] / 2, SCREEN_SIZE[1]))
+        change_button.draw(screen)
+        pygame.display.flip()
 
 pygame.quit()
