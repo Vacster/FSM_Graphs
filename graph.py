@@ -1,4 +1,4 @@
-import automaton, pickle, pygame, math, pygbutton
+import automaton, pickle, pygame, math, pybutton
 
 class Message:
     def __init__(self):
@@ -166,7 +166,7 @@ message = Message()
 clock = pygame.time.Clock()
 pygame.display.set_caption("Graphs v0.5")
 screen = pygame.display.set_mode(SCREEN_SIZE)
-change_button = pygbutton.PygButton((50, 50, 100, 50), 'Change')
+change_button = pybutton.PygButton((50, 50, 100, 50), 'Change')
 
 done = False
 drag = False
@@ -277,10 +277,17 @@ def get_circle_name(name):
         x, = name
         return x
 
+def add_node(pos, name, lines=None):
+    cir = Circle(pos, name)
+    if lines != None:
+        cir.lines = lines
+    circles.append(cir)
+    return cir
+
 #Main Loop
 while not done:
+    clock.tick(60) #Wut
     screen.fill(GREY)
-    clock.tick(30) #Wut
 
     for event in pygame.event.get():
         done = event.type == pygame.QUIT
@@ -298,22 +305,16 @@ while not done:
                     index = 1
                     """ Arranges nodes in a circle """
                     for node, data in M.delta.items():
-                        circle = Circle(
-                            (int((math.cos((index * (2*math.pi))/len(M.delta))
-                            * 500) + (SCREEN_SIZE[0]/2)),
-                            int((math.sin((index * (2*math.pi))/len(M.delta))
-                            * 500) + (SCREEN_SIZE[1]/2))),
-                            get_circle_name(node)
-                        )
+                        circle_name = get_circle_name(node)
+                        tmp_lines = []
                         for val, circle_b in data.items():
-                            circle.lines.append(
-                                Line(
-                                    circle.text,
-                                    get_circle_name(circle_b),
-                                    val
-                                )
-                            )
-                        circles.append(circle)
+                            tmp_lines.append(
+                                Line(circle_name, get_circle_name(circle_b),
+                                    val))
+                        add_node((int((math.cos((index * (2*math.pi))/len(M.delta))
+                        * 500) + (SCREEN_SIZE[0]/2)),
+                        int((math.sin((index * (2*math.pi))/len(M.delta))
+                        * 500) + (SCREEN_SIZE[1]/2))), circle_name, tmp_lines)
                         index += 1
                     initialState, = M.q0
                     for circle in circles:
@@ -362,9 +363,7 @@ while not done:
                         if len(input_text) > 0:
                             text = '%s' % input_text[:5]
                             if not circle_exists(text):
-                                circles.append(
-                                    Circle(pos,
-                                    text))
+                                add_node(pos, text)
                                 input_text = ""
                 drag = False
                 last_clicks = [0,0,0]

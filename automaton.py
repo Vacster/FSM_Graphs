@@ -1,3 +1,4 @@
+from functools import reduce
 # NFAtoDFA.py :
 # This is Python code for representing finite automata, DFAs and NFAs,
 # and for converting from an NFA into a DFA.
@@ -42,11 +43,11 @@ class NFA:
         return len(self.deltaHat(self.q0, inputString) & self.F) > 0
     def alphabet(self):
         """Returns the NFA's input alphabet, generated on the fly."""
-        Sigma = reduce(lambda a,b:set(a)|set(b), [x.keys() for x in self.delta.values()])
+        Sigma = reduce(lambda a,b:set(a)|set(b), [list(x.keys()) for x in list(self.delta.values())])
         return Sigma
     def states(self):
         """Returns the NFA's set of states, generated on the fly."""
-        Q = set([self.q0]) | set(self.delta.keys()) | reduce(lambda a,b:a|b, reduce(lambda a,b:a+b, [x.values() for x in self.delta.values()]))    # {q0, all states with outgoing arrows, all with incoming arrows}
+        Q = set([self.q0]) | set(self.delta.keys()) | reduce(lambda a,b:a|b, reduce(lambda a,b:a+b, [list(x.values()) for x in list(self.delta.values())]))    # {q0, all states with outgoing arrows, all with incoming arrows}
         return Q
 
 def convertNFAtoDFA(N):
@@ -91,3 +92,4 @@ def convertNFAtoDFA(N):
 # M = convertNFAtoDFA(N)
 # print [(x, M.inLanguage(x)) for x in ['0001', '00010', '100101']]
 # both the above lines should return [('0001', True), ('00010', False), ('100101', True
+#
