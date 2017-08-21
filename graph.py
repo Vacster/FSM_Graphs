@@ -1,16 +1,15 @@
-import automaton, pickle, pygame, math, pybutton
+import automaton, pickle, pygame, math, pybutton, pyperclip
 import helpers as H
 
-#Init game
 pygame.init()
 
 font = pygame.font.SysFont("monospace", 30)
 graph_state = "DFA"
-message = H.Message()
 clock = pygame.time.Clock()
-pygame.display.set_caption("Graphs v0.5")
+pygame.display.set_caption("Graphs v0.6")
 screen = pygame.display.set_mode(H.SCREEN_SIZE)
 change_button = pybutton.PygButton((50, 50, 100, 50), 'Change')
+message = H.Message()
 graph_display = H.Graph_Display()
 input_message = H.Input_Message()
 
@@ -60,12 +59,7 @@ def erase_circle(circle):
 def get_finals():
     finals = []
     for circle in H.circles:
-        for line in circle.lines:
-            for transition in line.text.split("|"):
-                if transition == '*':
-                    if find_circle(line.circle_b).final:
-                        finals.append(circle.text)
-        if circle.final:
+        if circle.is_final():
             finals.append(circle.text)
     return finals
 
@@ -82,13 +76,8 @@ def get_events():
         elif graph_state == "NFA":
             tmp = dict()
             tmp_2 = dict()
-            for line in circle.lines:
-                for x in line.text.split("|"):
-                    if x == '*':
-                        for y, eps_circle in get_epsilon(find_circle(line.circle_b)):
-                            tmp.setdefault(y,[]).append(eps_circle)
-                    else:
-                        tmp.setdefault(x,[]).append(line.circle_b)
+            for y, eps_circle in get_epsilon(circle):
+                tmp.setdefault(y,[]).append(eps_circle)
             for key, val in tmp.items():
                 tmp_2[key] = set(val)
             if tmp_2:
@@ -99,7 +88,7 @@ def get_epsilon(circle):
     for line in circle.lines:
         for x in line.text.split("|"):
             if x == '*':
-                for y, z in get_epsilon(find_circle(line.circle_b)):
+                for y, z in get_epsilon(H.find_circle(line.circle_b)):
                     yield y, z
             else:
                 yield x, line.circle_b
@@ -116,16 +105,9 @@ def get_circle_name(name):
         x, = name
         return x
 
-def add_node(pos, name, lines=None):
-    cir = H.Circle(pos, name)
-    if lines != None:
-        cir.lines = lines
-    H.circles.append(cir)
-    return cir
-
 #Main Loop
 while not done:
-    clock.tick(60) #Wut
+    clock.tick(60) #Does almost nothing
     screen.fill(H.GREY)
 
     for event in pygame.event.get():
@@ -150,10 +132,8 @@ while not done:
                             tmp_lines.append(
                                 H.Line(circle_name, get_circle_name(circle_b),
                                     val))
-                        add_node((int((math.cos((index * (2*math.pi))/len(M.delta))
-                        * 500) + (H.SCREEN_SIZE[0]/2)),
-                        int((math.sin((index * (2*math.pi))/len(M.delta))
-                        * 500) + (H.SCREEN_SIZE[1]/2))), circle_name, tmp_lines)
+                        H.add_node(H.circle_arrange(index, len(M.delta)),
+                            circle_name, tmp_lines)
                         index += 1
                     initialState, = M.q0
                     for circle in H.circles:
@@ -202,8 +182,12 @@ while not done:
                         if len(input_text) > 0:
                             text = '%s' % input_text[:5]
                             if not circle_exists(text):
-                                add_node(pos, text)
+                                H.add_node(pos, text)
                                 input_text = ""
+                            else:
+                                message.start("Circle already exists")
+                        else:
+                            lose_selection()
                 drag = False
                 last_clicks = [0,0,0]
 
@@ -229,6 +213,13 @@ while not done:
             #Backspace
             if event.unicode == "\b":
                 input_text = input_text[:-1]
+            #Ctrl-V
+            elif event.unicode == "":
+                input_text += pyperclip.paste()
+            #Ctrl-C
+            elif event.unicode == "":
+                input_text = ""
+            #Enter
             elif event.unicode == "\r":
                 if "save" in input_text:
                     try:
@@ -262,6 +253,15 @@ while not done:
                         message.start("Renamed succesfully.")
                     except Exception as e:
                         message.start(str(e))
+                elif "regex" in input_text:
+                    try:
+                        graph_state = "NFA"
+                        H.regex_to_nfa(input_text[5:])
+                        selected = H.find_circle("Start")
+                    except Exception as e:
+                        message.start("Error parsing regex.")
+                        raise e
+                    input_text = ""
                 elif selected != None:
                     try:
                         if graph_state == "DFA":
@@ -271,6 +271,7 @@ while not done:
                         message.start(str(N.inLanguage(input_text)))
                     except Exception as e:
                         message.start("False")
+                        print(e)
                 else:
                     message.start("Initial state not selected.")
             else:
